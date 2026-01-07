@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Mats Wahlberg
+ * Copyright (C) 2024, 2026 Mats Wahlberg
  *
  * This file is part of The Shattered.
  *
@@ -81,7 +81,7 @@ class DJ {
 	}
 
 	check_fuel() {
-		console.log("Fuel: ", this.fuel);
+		//console.log("Fuel: ", this.fuel);
 		//wait in case suggestion (override if banter)
 		if (this.suggestion_playing) {
 			return
@@ -109,7 +109,7 @@ class DJ {
 			}
 		}
 		else {
-			console.log("return")
+			//console.log("return")
 			//this.music.volume=0.4; //switch back when nothing left...
 		}
 	}
@@ -152,7 +152,7 @@ class DJ {
 	event_newblock(color) {
 		//if there's a suggestion playing, do nothing
 		if (this.suggestion_playing || this.audio_playing) {
-			console.log("no banter")
+			//console.log("no banter")
 			return;
 		}
 
@@ -172,7 +172,7 @@ class DJ {
 
 	//stops any currently playing, starts new
 	play(url) {
-		console.log("play: ",url);
+		//console.log("play: ",url);
 		this.audio.pause();
 
 		if (url) {
@@ -429,7 +429,7 @@ class Field {
 			if (this.check_line(seek)) {
 				dj.event_score()
 				bombbag.add();
-				this.explode_row(row);
+				this.explode_row(seek);
 			}
 			else {
 				for (let col=0; col<field_width; ++col) {
@@ -468,7 +468,10 @@ field = new Field;
 
 
 const detonate_timer=1000;
-const max_bombs=6;
+const max_bombs=3;
+const animation_speed=0.0008;
+const animation_shift=150;
+const bomb_scale=0.75;
 
 class BombBag {
 	constructor(field) {
@@ -477,9 +480,10 @@ class BombBag {
 		//this.bombs=null;
 		this.bomb_count=0;
 		//this.boms[max_bombs]; //Array?
+		this.animation=0;
 	}
 
-	add () {
+	add() {
 		/*
 		this.bombs={
 			animation: 0,
@@ -503,6 +507,10 @@ class BombBag {
 		}
 	}
 	step(delta) {
+		//store increasing value for animating available bombs
+		this.animation+=delta;
+
+		//detonation timer countdown
 		if (this.timer>0) {
 			this.timer-=delta;
 			if (this.timer<=0) {
@@ -522,7 +530,7 @@ class BombBag {
 
 	}
 	draw_bomb(row,col) {
-		context.drawImage(blocks, 5*64, 0, 64, 64, col*this.field.block_width/2, row*this.field.block_height/2, this.field.block_width/2, this.field.block_height/2);
+		context.drawImage(blocks, 5*64, 0, 64, 64, col*this.field.block_width*bomb_scale, row*this.field.block_height*bomb_scale, this.field.block_width*bomb_scale, this.field.block_height*bomb_scale);
 	}
 	draw() {
 		/*
@@ -538,11 +546,13 @@ class BombBag {
 		*/
 		let i;
 		for (i=0; i<this.bomb_count; ++i) {
-			this.draw_bomb(field_height*2-2,i,5);
+			let cycle=Math.sin(2*Math.PI*(this.animation-i*animation_shift)*animation_speed);
+			let height=(0.5*(cycle+1))**2;
+			this.draw_bomb(field_height/bomb_scale-1-height,i,5);
 		}
 
 		if (this.timer > 0) {
-			console.log("yes")
+			//console.log("yes")
 			context.fillStyle="red";
 			context.fillRect(0, this.field.block_height*(field_height-1+1.5/4), this.field.block_width*field_width*this.timer/detonate_timer, this.field.block_height/4);
 		}
@@ -814,7 +824,6 @@ function loop(time) {
 	field.resize();
 	field.clear();
 	field.draw();
-	bombbag.draw();
 
 	//TODO: should be moved into field...
 	if (johnny)
@@ -851,6 +860,8 @@ function loop(time) {
 			break;
 	}
 
+	//make sure it's drawn on top
+	bombbag.draw();
 
 	requestAnimationFrame(loop);
 }
