@@ -549,11 +549,13 @@ bombbag = new BombBag(field);
 
 const speed_slow=0.001;
 const speed_fast=0.01;
+const rotation_speed=Math.PI*0.003;
 class Johnnymino {
 	constructor(field) {
 		this.field=field;
 		this.speed=speed_slow;
 		this.color=rand_int(4);
+		this.rotation_anim=0;
 		dj.event_newblock(this.color);
 
 		switch (rand_int(3)) {
@@ -593,7 +595,7 @@ class Johnnymino {
 		//console.log(numrot);
 		for (let i=0; i<numrot; ++i) {
 			//console.log("rot");
-			this.rotate()
+			this.rotate(false)
 		}
 
 		//TODO: if U move y++ to cover gap
@@ -602,30 +604,42 @@ class Johnnymino {
 		//TODO: similarly random x margins right and left (for U)
 	}
 
-	rotate() {
-		dj.event_rotate();
+	rotate(animate) {
+		if (animate)
+			dj.event_rotate();
 
 		if (this.size==2) {
 			let newshape=	[[this.shape[1][0], this.shape[0][0]],
 					[this.shape[1][1], this.shape[0][1]]];
 
-			if (this.try_change(this.row,this.col,newshape))
+			if (this.try_change(this.row,this.col,newshape)) {
 				this.shape=newshape;
+				if (animate)
+					this.rotation_anim+=Math.PI/2;
+			}
 		} else {
 			let newshape=	[[this.shape[2][0], this.shape[1][0], this.shape[0][0]],
 					[this.shape[2][1], this.shape[1][1], this.shape[0][1]],
 					[this.shape[2][2], this.shape[1][2], this.shape[0][2]]];
 
+			let success=false;
 			if (this.try_change(this.row,this.col,newshape))
-				this.shape=newshape;
+				success=true;
+
 			//in case 'U'-shaped and can be rotated IF nudging it a bit to the side:
 			else if (this.try_change(this.row,this.col-1,newshape)) {
 				this.col-=1;
-				this.shape=newshape;
+				success=true;
 			}
 			else if (this.try_change(this.row,this.col+1,newshape)) {
 				this.col+=1;
+				success=true;
+			}
+
+			if (success) {
 				this.shape=newshape;
+				if (animate)
+					this.rotation_anim+=Math.PI/2;
 			}
 		}
 	}
@@ -653,6 +667,12 @@ class Johnnymino {
 			this.progress-=1;
 			this.row+=1;
 		}
+
+		//decrease animated rotation angle
+		this.rotation_anim-=rotation_speed*delta;
+		if (this.rotation_anim <= 0)
+			this.rotation_anim=0;
+
 		//this.row+=delta*this.speed;
 		//console.log("step x: " +this.row +"try y: "+ this.col);
 		//TODO: discrete
@@ -685,13 +705,29 @@ class Johnnymino {
 			let x_inv=1-x;
 			row=this.row + x*BASE + BASE_INV*(1-x_inv*x_inv/PIVOT_INV);
 		}
-		/*
-		*/
 
-		for (let i=0; i<this.size; ++i) {
-			for (let j=0; j<this.size; ++j) {
-				if (this.shape[i][j])
-					this.field.draw_block(row+i,this.col+j,this.color);
+		//to transform rotation around center of the johnnymino
+		let center=this.size/2;
+
+		//animated rotation
+		if (this.rotation_anim == 0) {
+			for (let i=0; i<this.size; ++i) {
+				for (let j=0; j<this.size; ++j) {
+					if (this.shape[i][j])
+						this.field.draw_block(row+i,this.col+j,this.color);
+				}
+			}
+		}
+		else {
+			for (let i=0; i<this.size; ++i) {
+				for (let j=0; j<this.size; ++j) {
+
+					context.translate((this.col+center)*this.field.block_width, (row+center)*this.field.block_height);
+					context.rotate(-this.rotation_anim);  //(10 * Math.PI) / 180);
+					if (this.shape[i][j])
+						this.field.draw_block(i-center,j-center,this.color);
+					context.setTransform(1, 0, 0, 1, 0, 0);
+				}
 			}
 		}
 	}
@@ -739,7 +775,7 @@ window.addEventListener("keydown", (event) => {
 		//console.log(event.key);
 		switch (event.key) {
 			case "ArrowUp":
-				johnny.rotate();
+				johnny.rotate(true);
 				break;
 			case "ArrowRight":
 				johnny.right();
