@@ -30,9 +30,14 @@ function unlikely() {
 	return (rand_int(6) == 0)
 }
 
+function very_unlikely() {
+	return (rand_int(20) == 0)
+}
+
 //volume levels
 const MUSIC_NORMAL=0.5;
 const MUSIC_QUIET=0.2;
+
 //list of music tracks
 const MUSIC_TRACKS=[
 	'music/Jonathan Holmes, Various Artists - Talking to Women about Videogames- The A - 10 It\'s not another ordinary day- Matt Harwood (Bit.Trip, Alien Hominid).mp3',
@@ -40,11 +45,13 @@ const MUSIC_TRACKS=[
 	'music/Jonathan Holmes, Various Artists - Talking to Women about Videogames- The A - 36 TtWaV NES Tribute- Mike Pugliese.mp3',
 	'music/Freak Out.mp3'];
 
-//each element represents a set of suggestion clips, of these many clips
+//each element represents a set of suggestion clips, of these many short clips
 const SUGGESTIONS=[13];
 
 //number of (rare) intro clips
 const NUM_EXTRA=1;
+//number of (rare) rotation comments
+const NUM_ROTATE=1;
 //number of (rare) random banter during gameplay
 const NUM_IDLERANDOM=4;
 //number of game-over clips
@@ -87,7 +94,6 @@ class DJ {
 			return
 		}
 
-		//TODO!
 		//override any banter... pause music (or decrease volume)...
 		if (this.fuel > 0) {
 			this.fuel--;
@@ -105,12 +111,7 @@ class DJ {
 			else {
 				this.suggestion_playing=true;
 				this.play('audio/suggestion_'+this.suggestion+'/'+this.suggestion_part+'.mp3')
-				//this.music.volume=MUSIC_QUIET;
 			}
-		}
-		else {
-			//console.log("return")
-			//this.music.volume=0.4; //switch back when nothing left...
 		}
 	}
 
@@ -121,6 +122,16 @@ class DJ {
 		//sometimes play an extra clip at start
 		if (unlikely())
 			this.play('audio/extra_'+(rand_int(NUM_EXTRA)+1)+'.mp3')
+	}
+
+	event_rotate() {
+		//only if nothing else playing right now...
+		if (this.suggestion_playing || this.audio_playing) {
+			return;
+		}
+
+		if (very_unlikely())
+			this.play('audio/rotate_'+(rand_int(NUM_ROTATE)+1)+'.mp3')
 	}
 
 	event_fail() {
@@ -200,9 +211,7 @@ class DJ {
 		this.music.pause(); //in case (intro) is playing, stop it
 		let tmp_vol=this.music.volume; //remember volume (might be lowered)
 
-		//this.music=new Audio(MUSIC_TRACKS[rand_int(MUSIC_TRACKS.length)]);
 		this.music=new Audio(rand_pick(MUSIC_TRACKS))
-		//this.music=new Audio("music/Jonathan Holmes, Various Artists - Talking to Women about Videogames- The A - 35 Sup Holmes Chiptune magic- LOL Shin Chan.mp3")
 		this.music.volume=tmp_vol
 		this.music.play();
 
@@ -227,9 +236,6 @@ const div = document.getElementById('bottom-div');
 const context=canvas.getContext("2d");
 
 
-//TODO: READ width+height in field.clear, adapt and update resolutions dynamically
-//canvas.width=400;
-//canvas.height=800;
 context.font="25px Impact";
 context.fillText("Loading...", 100, 100);
 
@@ -477,20 +483,11 @@ class BombBag {
 	constructor(field) {
 		this.timer=0;
 		this.field=field;
-		//this.bombs=null;
 		this.bomb_count=0;
-		//this.boms[max_bombs]; //Array?
 		this.animation=0;
 	}
 
 	add() {
-		/*
-		this.bombs={
-			animation: 0,
-			primed: false,
-			next: this.bombs
-		}
-		*/
 		if (this.bomb_count < max_bombs)
 			this.bomb_count++;
 	}
@@ -533,17 +530,6 @@ class BombBag {
 		context.drawImage(blocks, 5*64, 0, 64, 64, col*this.field.block_width*bomb_scale, row*this.field.block_height*bomb_scale, this.field.block_width*bomb_scale, this.field.block_height*bomb_scale);
 	}
 	draw() {
-		/*
-		let iter=this.bombs;
-		let x=0;
-
-		while (iter != null) {
-			this.field.draw_block(1,x,5);
-
-			x++;
-			iter=iter.next;
-		}
-		*/
 		let i;
 		for (i=0; i<this.bomb_count; ++i) {
 			let cycle=Math.sin(2*Math.PI*(this.animation-i*animation_shift)*animation_speed);
@@ -552,7 +538,6 @@ class BombBag {
 		}
 
 		if (this.timer > 0) {
-			//console.log("yes")
 			context.fillStyle="red";
 			context.fillRect(0, this.field.block_height*(field_height-1+1.5/4), this.field.block_width*field_width*this.timer/detonate_timer, this.field.block_height/4);
 		}
@@ -618,6 +603,8 @@ class Johnnymino {
 	}
 
 	rotate() {
+		dj.event_rotate();
+
 		if (this.size==2) {
 			let newshape=	[[this.shape[1][0], this.shape[0][0]],
 					[this.shape[1][1], this.shape[0][1]]];
@@ -840,8 +827,6 @@ function loop(time) {
 
 			//returns true if landed (spawn another)
 			if (johnny.step(delta)) {
-				//istället direkt i johnny.step()?
-				//+field.add(shape...)
 				delete johnny;
 				johnny=new Johnnymino(field);
 				field.remove_lines();
@@ -860,7 +845,7 @@ function loop(time) {
 			break;
 	}
 
-	//make sure it's drawn on top
+	//make sure bomb count is drawn on top
 	bombbag.draw();
 
 	requestAnimationFrame(loop);
