@@ -31,7 +31,7 @@ function unlikely() {
 }
 
 function very_unlikely() {
-	return (rand_int(20) == 0)
+	return (rand_int(12) == 0)
 }
 
 //volume levels
